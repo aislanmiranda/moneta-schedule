@@ -7,7 +7,7 @@ Worker service separado do `backend/`, dedicado a jobs recorrentes (Quartz.NET).
 ## Por que um processo separado
 
 O agendamento roda num worker próprio (`Microsoft.Extensions.Hosting` + Quartz), não
-dentro da `AgentOffice.Api`, para que reiniciar/atualizar a API não interrompa jobs em
+dentro da `Moneta.Api`, para que reiniciar/atualizar a API não interrompa jobs em
 andamento e vice-versa. Ele referencia diretamente os projetos `Domain`, `Application`,
 `Infra` e `Repository` do `backend/` — reaproveita o mesmo `AppDbContext` e as mesmas
 entidades, sem duplicar o modelo de dados nem expor endpoints HTTP próprios.
@@ -32,7 +32,7 @@ grava com `TriggerRequestedAt` preenchido), sem esperar o primeiro tick do cron.
 
 ```json
 {
-  "ConnectionStrings": { "AgentOffice": "..." }
+  "ConnectionStrings": { "Moneta": "..." }
 }
 ```
 

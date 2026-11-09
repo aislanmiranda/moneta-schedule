@@ -1,6 +1,6 @@
-using AgentOffice.Domain.Auth;
-using AgentOffice.Infra;
-using AgentOffice.Scheduler.Jobs;
+using Moneta.Domain.Auth;
+using Moneta.Infra;
+using Moneta.Scheduler.Jobs;
 using Quartz;
 
 var builder = Host.CreateApplicationBuilder(args);

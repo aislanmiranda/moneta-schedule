@@ -5,7 +5,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY --from=backend src/ backend/src/
 COPY . schedule/
-RUN dotnet publish schedule/AgentOffice.Scheduler.csproj -c Release -o /app -p:BackendDir=../backend
+RUN dotnet publish schedule/Moneta.Scheduler.csproj -c Release -o /app -p:BackendDir=../backend
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0
 WORKDIR /app
@@ -13,4 +13,4 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app .
-ENTRYPOINT ["dotnet", "AgentOffice.Scheduler.dll"]
+ENTRYPOINT ["dotnet", "Moneta.Scheduler.dll"]

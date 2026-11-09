@@ -1,11 +1,11 @@
-using AgentOffice.Domain.Enums;
-using AgentOffice.Infra.Persistence;
+using Moneta.Domain.Enums;
+using Moneta.Infra.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
 
-namespace AgentOffice.Scheduler.Jobs;
+namespace Moneta.Scheduler.Jobs;
 
 /// <summary>
 /// Keeps Quartz triggers in sync with every Routine's CronExpression (one routine = one trigger,

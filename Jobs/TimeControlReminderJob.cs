@@ -1,12 +1,12 @@
-using AgentOffice.Domain.Entities;
-using AgentOffice.Domain.Enums;
-using AgentOffice.Infra.Persistence;
+using Moneta.Domain.Entities;
+using Moneta.Domain.Enums;
+using Moneta.Infra.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
 
-namespace AgentOffice.Scheduler.Jobs;
+namespace Moneta.Scheduler.Jobs;
 
 /// <summary>
 /// Driven by a Routine (Type = TimeControlReminder, id via JobDataMap), scoped to that routine's

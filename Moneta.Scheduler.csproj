@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-AgentOffice.Scheduler-ffc82251-eb17-4392-b506-bb8d9d4d396e</UserSecretsId>
+    <UserSecretsId>dotnet-Moneta.Scheduler-ffc82251-eb17-4392-b506-bb8d9d4d396e</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,9 +22,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(BackendDir)\src\AgentOffice.Domain\AgentOffice.Domain.csproj" />
-    <ProjectReference Include="$(BackendDir)\src\AgentOffice.Application\AgentOffice.Application.csproj" />
-    <ProjectReference Include="$(BackendDir)\src\AgentOffice.Infra\AgentOffice.Infra.csproj" />
-    <ProjectReference Include="$(BackendDir)\src\AgentOffice.Repository\AgentOffice.Repository.csproj" />
+    <ProjectReference Include="$(BackendDir)\src\Moneta.Domain\Moneta.Domain.csproj" />
+    <ProjectReference Include="$(BackendDir)\src\Moneta.Application\Moneta.Application.csproj" />
+    <ProjectReference Include="$(BackendDir)\src\Moneta.Infra\Moneta.Infra.csproj" />
+    <ProjectReference Include="$(BackendDir)\src\Moneta.Repository\Moneta.Repository.csproj" />
   </ItemGroup>
 </Project>
