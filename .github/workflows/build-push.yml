@@ -1,7 +1,7 @@
 # Build e push da imagem do scheduler no Harbor (projeto "moneta").
 # Desenho: AM-4 (documento "architecture", §1).
 #
-# - push na main / workflow_dispatch na main: build + push, tag = SHA completo do commit
+# - push na main / workflow_dispatch na main: build + push, tag = SHA curto (7 chars) do commit
 #   deste repositório (moneta-schedule).
 # - pull_request para a main / workflow_dispatch em outra branch: só build (sem login, sem push).
 # - O Dockerfile usa o contexto adicional "backend" (Domain/Application/Infra/Repository).
@@ -53,6 +53,10 @@ jobs:
         id: backend
         run: echo "sha=$(git -C backend rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Tag da imagem (sha curto)
+        id: vars
+        run: echo "tag=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
@@ -71,7 +75,7 @@ jobs:
           build-contexts: backend=./backend
           push: ${{ env.PUBLISH == 'true' }}
           provenance: false
-          tags: ${{ env.REGISTRY }}/moneta/schedule:${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/moneta/schedule:${{ steps.vars.outputs.tag }}
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
@@ -79,14 +83,46 @@ jobs:
           cache-from: type=gha,scope=schedule
           cache-to: type=gha,scope=schedule,mode=max
 
+      - name: Atualizar tag no moneta-deploy
+        if: env.PUBLISH == 'true'
+        env:
+          TAG: ${{ steps.vars.outputs.tag }}
+          K3S_DEPLOY_KEY: ${{ secrets.K3S_DEPLOY_KEY }}
+          IMAGES: "schedule"
+          KFILE: apps/backend/kustomization.yaml
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          (umask 077; printf '%s\n' "$K3S_DEPLOY_KEY" > ~/.ssh/deploy_key)
+          ssh-keyscan -t ed25519,rsa github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes"
+          git clone --branch main git@github.com:aislanmiranda/moneta-deploy.git deploy
+          cd deploy
+          git config user.name "moneta-ci"
+          git config user.email "moneta-ci@users.noreply.github.com"
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            for img in $IMAGES; do
+              IMG="${REGISTRY}/moneta/${img}" yq -i \
+                '(.images[] | select(.name == strenv(IMG))).newTag = strenv(TAG)' "$KFILE"
+            done
+            if git diff --quiet; then echo "tag já atualizada"; exit 0; fi
+            git commit -am "ci: ${GITHUB_REPOSITORY#*/} ${IMAGES} -> ${TAG}"
+            if git push origin HEAD:main; then exit 0; fi
+            echo "push recusado (tentativa $attempt); repetindo"; sleep $((attempt * 3))
+          done
+          echo "falha ao atualizar o moneta-deploy" >&2; exit 1
+
       - name: Resumo
         if: always()
         run: |
           {
             echo "### Imagem (${PUBLISH_LABEL})"
-            echo "- \`${REGISTRY}/moneta/schedule:${GITHUB_SHA}\`"
+            echo "- \`${REGISTRY}/moneta/schedule:${TAG}\`"
             echo "- backend usado: \`aislanmiranda/moneta-backend@${BACKEND_SHA}\`"
           } >> "$GITHUB_STEP_SUMMARY"
         env:
+          TAG: ${{ steps.vars.outputs.tag }}
           PUBLISH_LABEL: ${{ env.PUBLISH == 'true' && 'publicada no Harbor' || 'só build, sem push' }}
           BACKEND_SHA: ${{ steps.backend.outputs.sha }}
