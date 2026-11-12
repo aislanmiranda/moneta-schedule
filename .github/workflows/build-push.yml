@@ -1,8 +1,11 @@
 # Build e push da imagem do scheduler no Harbor (projeto "moneta").
 # Desenho: AM-4 (documento "architecture", §1).
 #
-# - push na main / workflow_dispatch na main: build + push, tag = SHA curto (7 chars) do commit
-#   deste repositório (moneta-schedule).
+# - push na main / workflow_dispatch na main: build + push.
+# - Tag = s<sha curto do schedule>-b<sha curto do backend>: o scheduler compila o código do
+#   backend, então uma mudança só no backend também gera imagem (e tag) nova.
+# - workflow_call: o CI do moneta-backend chama este workflow depois de publicar a API
+#   (backend_ref = commit do backend). Em PR do backend só compila; no push da main publica.
 # - pull_request para a main / workflow_dispatch em outra branch: só build (sem login, sem push).
 # - O Dockerfile usa o contexto adicional "backend" (Domain/Application/Infra/Repository).
 #   O workflow faz checkout de aislanmiranda/moneta-backend@main em ./backend e o passa via
@@ -17,12 +20,26 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      backend_ref:
+        description: commit do moneta-backend usado como contexto "backend"
+        type: string
+        default: main
+    secrets:
+      HARBOR_USERNAME:
+        required: false
+      HARBOR_PASSWORD:
+        required: false
+      K3S_DEPLOY_KEY:
+        required: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: build-push-${{ github.ref }}
+  # Grupo próprio: quando chamado pelo backend, não pode coincidir com o grupo do workflow que chama.
+  group: build-push-schedule-${{ github.repository }}-${{ github.ref }}
   # Builds da main nunca são cancelados; em PR/branch só o mais recente importa.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
@@ -38,6 +55,8 @@ jobs:
       - name: Checkout moneta-schedule
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          repository: aislanmiranda/moneta-schedule
+          ref: ${{ github.repository == 'aislanmiranda/moneta-schedule' && github.sha || 'main' }}
           path: schedule
           persist-credentials: false
 
@@ -45,7 +64,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: aislanmiranda/moneta-backend
-          ref: main
+          ref: ${{ inputs.backend_ref || 'main' }}
           path: backend
           persist-credentials: false
 
@@ -53,9 +72,11 @@ jobs:
         id: backend
         run: echo "sha=$(git -C backend rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Tag da imagem (sha curto)
+      - name: Tag da imagem (s<schedule>-b<backend>)
         id: vars
-        run: echo "tag=$(git -C schedule rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "schedule_sha=$(git -C schedule rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "tag=s$(git -C schedule rev-parse --short=7 HEAD)-b$(git -C backend rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -77,8 +98,8 @@ jobs:
           provenance: false
           tags: ${{ env.REGISTRY }}/moneta/schedule:${{ steps.vars.outputs.tag }}
           labels: |
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.vars.outputs.schedule_sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/aislanmiranda/moneta-schedule
             moneta.backend.revision=${{ steps.backend.outputs.sha }}
           cache-from: type=gha,scope=schedule
           cache-to: type=gha,scope=schedule,mode=max
@@ -108,7 +129,7 @@ jobs:
                 '(.images[] | select(.name == strenv(IMG))).newTag = strenv(TAG)' "$KFILE"
             done
             if git diff --quiet; then echo "tag já atualizada"; exit 0; fi
-            git commit -am "ci: ${GITHUB_REPOSITORY#*/} ${IMAGES} -> ${TAG}"
+            git commit -am "ci: moneta-schedule ${IMAGES} -> ${TAG} (via ${GITHUB_REPOSITORY#*/})"
             if git push origin HEAD:main; then exit 0; fi
             echo "push recusado (tentativa $attempt); repetindo"; sleep $((attempt * 3))
           done
