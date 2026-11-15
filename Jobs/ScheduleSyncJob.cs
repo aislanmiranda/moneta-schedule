@@ -1,3 +1,4 @@
+using Moneta.Domain;
 using Moneta.Domain.Enums;
 using Moneta.Infra.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -68,12 +69,13 @@ public class ScheduleSyncJob(
                 continue;
             }
 
-            if (existingTrigger is null || existingTrigger.CronExpressionString != routine.CronExpression)
+            if (existingTrigger is null || existingTrigger.CronExpressionString != routine.CronExpression ||
+                existingTrigger.TimeZone.Id != AppTime.Zone.Id)
             {
                 var newTrigger = TriggerBuilder.Create()
                     .WithIdentity(triggerKey)
                     .ForJob(jobKey)
-                    .WithCronSchedule(routine.CronExpression)
+                    .WithCronSchedule(routine.CronExpression, x => x.InTimeZone(AppTime.Zone))
                     .UsingJobData(data)
                     .Build();
 

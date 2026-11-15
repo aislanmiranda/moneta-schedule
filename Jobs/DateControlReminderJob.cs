@@ -1,4 +1,5 @@
 using Moneta.Application.Routines;
+using Moneta.Domain;
 using Moneta.Domain.Entities;
 using Moneta.Domain.Enums;
 using Moneta.Infra.Persistence;
@@ -56,11 +57,10 @@ public class DateControlReminderJob(
         }
 
         var moduleId = routine.ModuleId;
-        // Local, not UTC: backend/worker run on the user's own machine, so DateTime.Now already
-        // reflects the right "today" for a bill due on the calendar date the user sees — using
-        // UtcNow here flips to tomorrow a few hours early for anyone west of UTC.
-        var now = DateTime.Now;
-        var today = DateOnly.FromDateTime(now);
+        // The user's local day (APP_TIMEZONE), not UTC and not the server's clock (the worker runs
+        // in UTC): UtcNow flips to tomorrow a few hours early for anyone west of UTC.
+        var now = AppTime.Now.DateTime;
+        var today = AppTime.Today;
 
         var overdueCount = await db.DateControlEntries
             .Where(e => e.ModuleId == moduleId && e.Status == DateControlEntryStatus.Pending && e.DueDate < today)
